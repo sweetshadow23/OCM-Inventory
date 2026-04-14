@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Office Supplies Inventory</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F7F6F2;--surface:#FFFFFF;--surface2:#F0EDE8;
+  --purple:#534AB7;--purple-light:#EEEDFE;--purple-mid:#AFA9EC;
+  --text:#1C1B18;--text2:#6B6960;--text3:#9C9A94;
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);
+  --green-bg:#EAF3DE;--green-text:#3B6D11;
+  --amber-bg:#FAEEDA;--amber-text:#854F0B;
+  --red-bg:#FCEBEB;--red-text:#A32D2D;
+  --teal-bg:#E1F5EE;--teal-text:#0F6E56;
+  --radius:10px;--radius-lg:14px;
+  --font:'DM Sans',system-ui,sans-serif;
+  --mono:'DM Mono',monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+h1{font-size:20px;font-weight:600}
+h2{font-size:16px;font-weight:600}
+h3{font-size:14px;font-weight:500}
+input,select,textarea{font-family:var(--font);font-size:13px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 11px;color:var(--text);width:100%;outline:none;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(83,74,183,.12)}
+input::placeholder{color:var(--text3)}
+button{font-family:var(--font);font-size:13px;cursor:pointer;border-radius:8px;border:1px solid var(--border2);background:var(--surface);color:var(--text);padding:8px 16px;transition:all .15s;font-weight:500}
+button:hover{background:var(--surface2)}
+button:active{transform:scale(.98)}
+.btn-primary{background:var(--purple);border-color:var(--purple);color:#fff}
+.btn-primary:hover{background:#3C3489;border-color:#3C3489}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed}
+.btn-danger{background:#A32D2D;border-color:#A32D2D;color:#fff}
+.btn-danger:hover{background:#791F1F}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-ghost{border-color:transparent;background:transparent;color:var(--text2)}
+.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem}
+.card-flush{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.02em}
+.badge-ok{background:var(--green-bg);color:var(--green-text)}
+.badge-low{background:var(--amber-bg);color:var(--amber-text)}
+.badge-out{background:var(--red-bg);color:var(--red-text)}
+.badge-admin{background:var(--purple-light);color:var(--purple)}
+.badge-staff{background:var(--teal-bg);color:var(--teal-text)}
+.badge-restock{background:var(--green-bg);color:var(--green-text)}
+.badge-taken{background:var(--amber-bg);color:var(--amber-text)}
+label{font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:5px;letter-spacing:.02em;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 14px;color:var(--text3);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--surface2)}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#FAFAF8}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.logo-wrap{display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:var(--purple-light);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px}
+.logo-text{font-size:15px;font-weight:600;letter-spacing:-.3px}
+.logo-text span{color:var(--purple)}
+.user-chip{display:flex;align-items:center;gap:10px}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--purple-light);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+.tabs-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:2px}
+.tab-btn{padding:11px 16px;border:none;background:transparent;color:var(--text3);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font)}
+.tab-btn:hover{color:var(--text2)}
+.tab-btn.active{color:var(--purple);border-bottom-color:var(--purple)}
+.content{padding:24px;max-width:1100px;margin:0 auto}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-val{font-size:26px;font-weight:600;line-height:1;font-family:var(--mono)}
+.stat-lbl{font-size:11px;color:var(--text2);margin-top:4px;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.toolbar input{max-width:200px}
+.toolbar select{max-width:160px}
+.alert{padding:11px 15px;border-radius:var(--radius);font-size:13px;margin-bottom:16px;font-weight:500;display:flex;align-items:center;gap:8px}
+.alert-success{background:var(--green-bg);color:var(--green-text)}
+.alert-error{background:var(--red-bg);color:var(--red-text)}
+.alert-info{background:var(--purple-light);color:var(--purple)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.form-group{display:flex;flex-direction:column}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.empty-state{text-align:center;padding:48px 20px;color:var(--text3)}
+.empty-state .icon{font-size:36px;margin-bottom:8px}
+.empty-state p{font-size:13px}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--purple);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:var(--text2)}
+.setup-panel{background:var(--amber-bg);border:1px solid #FAC775;border-radius:var(--radius-lg);padding:20px;margin-bottom:20px}
+.setup-panel h3{color:var(--amber-text);margin-bottom:8px;font-size:14px}
+.setup-panel p{font-size:13px;color:var(--amber-text);line-height:1.6}
+.setup-panel code{background:rgba(0,0,0,.08);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:12px}
+.setup-steps{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.setup-step{background:rgba(255,255,255,.6);border-radius:8px;padding:10px 14px;font-size:13px;color:#5C3D0A}
+.setup-step strong{display:block;font-size:12px;margin-bottom:2px;color:#854F0B}
+.config-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px}
+.config-form h2{margin-bottom:16px}
+.qty-input-wrap{display:flex;gap:6px;align-items:center}
+.qty-input-wrap input{width:70px}
+@media(max-width:600px){
+  .form-grid{grid-template-columns:1fr}
+  .topbar{padding:10px 14px}
+  .content{padding:14px}
+  .tabs-bar{padding:0 14px;overflow-x:auto}
+  .user-chip .user-name{display:none}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="loading-screen">
+    <div class="spinner"></div>
+    <span>Loading inventory system...</span>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// FIREBASE CONFIGURATION
+// Replace with your own Firebase project config below.
+// See setup instructions in the app after opening this file.
+// ============================================================
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCrb4POFjh32drdjet77ZNg3PvNlY7L2Zg",
+  authDomain: "sweetshadow-237de.firebaseapp.com",
+  projectId: "sweetshadow-237de",
+  storageBucket: "sweetshadow-237de.firebasestorage.app",
+  messagingSenderId: "903858609597",
+  appId: "1:903858609597:web:c8df2e004da03908d606d4",
+  measurementId: "G-2L81DX4LY9"
+};
+
+// ============================================================
+// DEFAULT USERS (stored in Firestore on first run)
+// You can change passwords here before deploying
+// ============================================================
+const DEFAULT_USERS = [
+  {username:'admin',   password:'admin123', name:'Admin User',   role:'admin'},
+  {username:'jezza',   password:'pass123',  name:'Jezza Canaria', role:'staff'},
+  {username:'Piii',    password:'pass123',  name:'Paul Christian Faller',   role:'staff'},
+  {username:'Ann-Dhie',     password:'pass123',  name:'Andrea Mhae Tomas',     role:'staff'},
+];
+
+// ============================================================
+// DEFAULT INVENTORY (seeded on first run)
+// ============================================================
+const DEFAULT_INVENTORY = [
+  {name:'Ballpen (Black)',    category:'Writing', unit:'piece', qty:120, low:20},
+  {name:'Ballpen (Blue)',     category:'Writing', unit:'piece', qty:80,  low:20},
+  {name:'Pencil (HB)',        category:'Writing', unit:'piece', qty:60,  low:15},
+  {name:'Sticky Notes (3x3)',category:'Paper',   unit:'pack',  qty:25,  low:5},
+  {name:'Bond Paper (A4)',    category:'Paper',   unit:'ream',  qty:18,  low:3},
+  {name:'Folder (Long)',      category:'Filing',  unit:'piece', qty:45,  low:10},
+  {name:'Stapler',            category:'Desktop', unit:'piece', qty:8,   low:2},
+  {name:'Staple Wire',        category:'Desktop', unit:'box',   qty:30,  low:5},
+  {name:'Scotch Tape',        category:'Desktop', unit:'roll',  qty:15,  low:3},
+  {name:'Correction Tape',    category:'Writing', unit:'piece', qty:22,  low:5},
+  {name:'Scissors',           category:'Desktop', unit:'piece', qty:6,   low:2},
+  {name:'Envelopes (Long)',   category:'Paper',   unit:'pack',  qty:12,  low:3},
+];
+
+// ============================================================
+// APP STATE
+// ============================================================
+let db = null;
+let state = {
+  screen: 'loading', // loading | setup | login | app
+  currentUser: null,
+  tab: 'inventory',
+  inventory: [],
+  logs: [],
+  users: [],
+  loginUser: '',
+  loginPass: '',
+  loginError: '',
+  loginLoading: false,
+  alert: null,
+  showAddItem: false,
+  showEditItem: null,
+  newItem: {name:'',category:'',unit:'',qty:'',low:'5'},
+  requestQty: {},
+  restockQty: {},
+  searchTerm: '',
+  filterCat: '',
+  configInput: {apiKey:'',authDomain:'',projectId:'',storageBucket:'',messagingSenderId:'',appId:''},
+  dataLoaded: false,
+};
+
+// ============================================================
+// FIREBASE INIT
+// ============================================================
+function isConfigured() {
+  return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId;
+}
+
+function initFirebase(config) {
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(config);
+    }
+    db = firebase.firestore();
+    return true;
+  } catch(e) {
+    console.error('Firebase init error:', e);
+    return false;
+  }
+}
+
+async function seedDatabase() {
+  // Seed users
+  const usersSnap = await db.collection('users').get();
+  if (usersSnap.empty) {
+    const batch = db.batch();
+    DEFAULT_USERS.forEach(u => {
+      const ref = db.collection('users').doc(u.username);
+      batch.set(ref, u);
+    });
+    await batch.commit();
+  }
+  // Seed inventory
+  const invSnap = await db.collection('inventory').get();
+  if (invSnap.empty) {
+    const batch = db.batch();
+    DEFAULT_INVENTORY.forEach(item => {
+      const ref = db.collection('inventory').doc();
+      batch.set(ref, {...item, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+    });
+    await batch.commit();
+  }
+}
+
+function subscribeInventory() {
+  db.collection('inventory').orderBy('name').onSnapshot(snap => {
+    state.inventory = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    if (state.screen === 'app') render();
+  });
+}
+
+function subscribeLogs() {
+  db.collection('logs').orderBy('createdAt','desc').limit(200).onSnapshot(snap => {
+    state.logs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    if (state.screen === 'app') render();
+  });
+}
+
+// ============================================================
+// ACTIONS
+// ============================================================
+function showAlert(msg, type='success') {
+  state.alert = {msg, type};
+  render();
+  setTimeout(() => { state.alert = null; render(); }, 3500);
+}
+
+async function doLogin() {
+  if (!state.loginUser || !state.loginPass) return;
+  state.loginLoading = true;
+  render();
+  try {
+    const doc = await db.collection('users').doc(state.loginUser.trim().toLowerCase()).get();
+    if (doc.exists && doc.data().password === state.loginPass) {
+      state.currentUser = {id: doc.id, ...doc.data()};
+      state.loginError = '';
+      state.loginUser = '';
+      state.loginPass = '';
+      state.screen = 'app';
+      subscribeInventory();
+      subscribeLogs();
+    } else {
+      state.loginError = 'Invalid username or password.';
+    }
+  } catch(e) {
+    state.loginError = 'Connection error. Check your Firebase config.';
+  }
+  state.loginLoading = false;
+  render();
+}
+
+function doLogout() {
+  state.currentUser = null;
+  state.screen = 'login';
+  state.tab = 'inventory';
+  state.inventory = [];
+  state.logs = [];
+  render();
+}
+
+async function requestItem(itemId) {
+  const qty = parseInt(state.requestQty[itemId] || 0);
+  const item = state.inventory.find(i => i.id === itemId);
+  if (!item) return;
+  if (!qty || qty < 1) { showAlert('Enter a valid quantity.', 'error'); return; }
+  if (qty > item.qty) { showAlert(`Only ${item.qty} ${item.unit}(s) available.`, 'error'); return; }
+  try {
+    await db.collection('inventory').doc(itemId).update({ qty: item.qty - qty });
+    await db.collection('logs').add({
+      itemId, itemName: item.name, qty, unit: item.unit,
+      user: state.currentUser.name, username: state.currentUser.username,
+      type: 'taken', createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      dateStr: new Date().toLocaleString('en-PH')
+    });
+    state.requestQty[itemId] = '';
+    showAlert(`${qty} ${item.unit}(s) of "${item.name}" logged.`);
+  } catch(e) { showAlert('Error saving request.', 'error'); }
+}
+
+async function restockItem(itemId) {
+  const qty = parseInt(state.restockQty[itemId] || 0);
+  const item = state.inventory.find(i => i.id === itemId);
+  if (!item) return;
+  if (!qty || qty < 1) { showAlert('Enter a valid restock quantity.', 'error'); return; }
+  try {
+    await db.collection('inventory').doc(itemId).update({ qty: item.qty + qty });
+    await db.collection('logs').add({
+      itemId, itemName: item.name, qty, unit: item.unit,
+      user: state.currentUser.name, username: state.currentUser.username,
+      type: 'restock', createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      dateStr: new Date().toLocaleString('en-PH')
+    });
+    state.restockQty[itemId] = '';
+    showAlert(`Restocked ${qty} ${item.unit}(s) of "${item.name}".`);
+  } catch(e) { showAlert('Error restocking item.', 'error'); }
+}
+
+async function addItem() {
+  const n = state.newItem;
+  if (!n.name || !n.category || !n.unit || n.qty === '') { showAlert('Fill in all required fields.', 'error'); return; }
+  try {
+    await db.collection('inventory').add({
+      name: n.name.trim(), category: n.category, unit: n.unit.trim(),
+      qty: parseInt(n.qty), low: parseInt(n.low) || 5,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    state.newItem = {name:'',category:'',unit:'',qty:'',low:'5'};
+    state.showAddItem = false;
+    showAlert(`"${n.name}" added to inventory.`);
+  } catch(e) { showAlert('Error adding item.', 'error'); }
+}
+
+async function saveEditItem() {
+  const e = state.showEditItem;
+  if (!e) return;
+  try {
+    await db.collection('inventory').doc(e.id).update({
+      name: e.name, category: e.category, unit: e.unit,
+      qty: parseInt(e.qty), low: parseInt(e.low)
+    });
+    state.showEditItem = null;
+    showAlert('Item updated.');
+  } catch(err) { showAlert('Error updating item.', 'error'); }
+}
+
+async function deleteItem(id, name) {
+  if (!confirm(`Remove "${name}" from inventory?`)) return;
+  try {
+    await db.collection('inventory').doc(id).delete();
+    showAlert(`"${name}" removed.`);
+  } catch(e) { showAlert('Error deleting item.', 'error'); }
+}
+
+// ============================================================
+// RENDER HELPERS
+// ============================================================
+function getInitials(name) {
+  return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+}
+
+function getStatus(item) {
+  if (item.qty === 0) return 'out';
+  if (item.qty <= item.low) return 'low';
+  return 'ok';
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ============================================================
+// RENDER SCREENS
+// ============================================================
+function renderSetup() {
+  const c = state.configInput;
+  return `
+  <div style="min-height:100vh;background:var(--bg);padding:24px 16px">
+    <div style="max-width:640px;margin:0 auto">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
+        <div class="logo-icon">📦</div>
+        <div>
+          <div class="logo-text">Office <span>Supplies</span> Inventory</div>
+          <div style="font-size:12px;color:var(--text3)">First-time setup</div>
+        </div>
+      </div>
+
+      <div class="setup-panel">
+        <h3>🔧 Firebase Setup Required</h3>
+        <p>This app uses <strong>Firebase Firestore</strong> (free) to sync inventory across all your office PCs in real time. Follow these steps once:</p>
+        <div class="setup-steps">
+          <div class="setup-step"><strong>Step 1 — Create a Firebase project</strong>Go to <a href="https://console.firebase.google.com" target="_blank" style="color:var(--purple)">console.firebase.google.com</a> → click "Add project" → enter any name → continue until done.</div>
+          <div class="setup-step"><strong>Step 2 — Enable Firestore</strong>In your project → "Build" → "Firestore Database" → "Create database" → choose "Start in test mode" → select a region → click Enable.</div>
+          <div class="setup-step"><strong>Step 3 — Get your config</strong>Go to Project Settings (⚙️ icon) → "Your apps" → click "&lt;/&gt;" Web → register app → copy the <code>firebaseConfig</code> values.</div>
+          <div class="setup-step"><strong>Step 4 — Paste config below</strong>Fill in the fields below and click Save. The app will seed itself with default users and inventory.</div>
+        </div>
+      </div>
+
+      <div class="config-form card">
+        <h2 style="margin-bottom:16px">Firebase Configuration</h2>
+        ${state.configError ? `<div class="alert alert-error">${state.configError}</div>` : ''}
+        <div class="form-grid">
+          <div class="form-group"><label>API Key</label><input placeholder="AIzaSy..." value="${esc(c.apiKey)}" oninput="state.configInput.apiKey=this.value"/></div>
+          <div class="form-group"><label>Auth Domain</label><input placeholder="your-app.firebaseapp.com" value="${esc(c.authDomain)}" oninput="state.configInput.authDomain=this.value"/></div>
+          <div class="form-group"><label>Project ID</label><input placeholder="your-app-id" value="${esc(c.projectId)}" oninput="state.configInput.projectId=this.value"/></div>
+          <div class="form-group"><label>Storage Bucket</label><input placeholder="your-app.appspot.com" value="${esc(c.storageBucket)}" oninput="state.configInput.storageBucket=this.value"/></div>
+          <div class="form-group"><label>Messaging Sender ID</label><input placeholder="123456789" value="${esc(c.messagingSenderId)}" oninput="state.configInput.messagingSenderId=this.value"/></div>
+          <div class="form-group"><label>App ID</label><input placeholder="1:123456:web:abc..." value="${esc(c.appId)}" oninput="state.configInput.appId=this.value"/></div>
+        </div>
+        <button class="btn-primary" style="width:100%;padding:11px" onclick="saveConfig()">Save & Connect</button>
+        <p style="font-size:12px;color:var(--text3);margin-top:10px;text-align:center">Your config is saved in this browser. Share the <code>.html</code> file with your officemates — they each paste the same config once.</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+function saveConfig() {
+  const c = state.configInput;
+  if (!c.apiKey || !c.projectId) { state.configError = 'API Key and Project ID are required.'; render(); return; }
+  const config = {...c};
+  localStorage.setItem('inv_firebase_config', JSON.stringify(config));
+  location.reload();
+}
+
+function renderLogin() {
+  return `
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--bg)">
+    <div class="card" style="width:100%;max-width:380px">
+      <div style="text-align:center;margin-bottom:1.75rem">
+        <div style="width:52px;height:52px;border-radius:14px;background:var(--purple-light);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:24px">📦</div>
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.4px">Office Inventory</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px">Sign in to your account</div>
+      </div>
+      ${state.loginError ? `<div class="alert alert-error">${state.loginError}</div>` : ''}
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" value="${esc(state.loginUser)}" oninput="state.loginUser=this.value" placeholder="Enter username" onkeydown="if(event.key==='Enter')doLogin()"/>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" value="${esc(state.loginPass)}" oninput="state.loginPass=this.value" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()"/>
+        </div>
+        <button class="btn-primary" style="width:100%;padding:11px;font-size:14px;margin-top:2px" onclick="doLogin()" ${state.loginLoading?'disabled':''}>
+          ${state.loginLoading ? '<span class="spinner" style="width:14px;height:14px;border-width:2px;border-top-color:#fff"></span>' : 'Sign In'}
+        </button>
+      </div>
+      <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.05em">Default accounts</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:12px;color:var(--text2)">admin / admin123 — Admin</div>
+          <div style="font-size:12px;color:var(--text2)">maria / pass123 — Staff</div>
+          <div style="font-size:12px;color:var(--text2)">jose / pass123 — Staff</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderTopbar() {
+  const u = state.currentUser;
+  return `<div class="topbar">
+    <div class="logo-wrap">
+      <div class="logo-icon">📦</div>
+      <div class="logo-text">Office <span>Supplies</span></div>
+    </div>
+    <div class="user-chip">
+      <div class="avatar">${getInitials(u.name)}</div>
+      <span class="user-name" style="font-size:13px;font-weight:500">${esc(u.name)}</span>
+      <span class="badge ${u.role==='admin'?'badge-admin':'badge-staff'}">${u.role}</span>
+      <button class="btn-ghost btn-sm" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>`;
+}
+
+function renderTabs() {
+  const tabs = state.currentUser.role === 'admin'
+    ? [['inventory','📋 Inventory'],['logs','📜 Activity Log'],['admin','⚙️ Manage']]
+    : [['inventory','📋 Inventory'],['logs','📜 My Requests']];
+  return `<div class="tabs-bar">
+    ${tabs.map(([k,v]) => `<button class="tab-btn ${state.tab===k?'active':''}" onclick="state.tab='${k}';render()">${v}</button>`).join('')}
+  </div>`;
+}
+
+function renderAlert() {
+  if (!state.alert) return '';
+  return `<div class="alert alert-${state.alert.type}">${state.alert.msg}</div>`;
+}
+
+function renderStats() {
+  const inv = state.inventory;
+  const out = inv.filter(i => getStatus(i) === 'out').length;
+  const low = inv.filter(i => getStatus(i) === 'low').length;
+  const ok = inv.filter(i => getStatus(i) === 'ok').length;
+  return `<div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-val">${inv.length}</div>
+      <div class="stat-lbl">Total Items</div>
+    </div>
+    <div class="stat-card" style="border-color:#C0DD97">
+      <div class="stat-val" style="color:var(--green-text)">${ok}</div>
+      <div class="stat-lbl" style="color:var(--green-text)">In Stock</div>
+    </div>
+    <div class="stat-card" style="border-color:#FAC775">
+      <div class="stat-val" style="color:var(--amber-text)">${low}</div>
+      <div class="stat-lbl" style="color:var(--amber-text)">Low Stock</div>
+    </div>
+    <div class="stat-card" style="border-color:#F09595">
+      <div class="stat-val" style="color:var(--red-text)">${out}</div>
+      <div class="stat-lbl" style="color:var(--red-text)">Out of Stock</div>
+    </div>
+  </div>`;
+}
+
+function renderInventoryTab() {
+  const isStaff = state.currentUser.role === 'staff';
+  const cats = [...new Set(state.inventory.map(i => i.category))].sort();
+  let items = state.inventory;
+  if (state.searchTerm) items = items.filter(i => i.name.toLowerCase().includes(state.searchTerm.toLowerCase()));
+  if (state.filterCat) items = items.filter(i => i.category === state.filterCat);
+
+  return `<div class="content">
+    ${renderAlert()}
+    ${renderStats()}
+    <div class="toolbar">
+      <input placeholder="Search supplies..." value="${esc(state.searchTerm)}" oninput="state.searchTerm=this.value;render()" style="flex:1;min-width:140px;max-width:220px"/>
+      <select onchange="state.filterCat=this.value;render()" style="max-width:160px">
+        <option value="">All categories</option>
+        ${cats.map(c=>`<option value="${esc(c)}" ${state.filterCat===c?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="card-flush">
+      <table>
+        <thead><tr>
+          <th>Item</th><th>Category</th><th>In Stock</th><th>Status</th>
+          ${isStaff ? '<th>Request</th><th></th>' : '<th>Restock</th>'}
+        </tr></thead>
+        <tbody>
+          ${items.length === 0 ? `<tr><td colspan="6"><div class="empty-state"><div class="icon">🔍</div><p>No items found</p></div></td></tr>` : ''}
+          ${items.map(item => {
+            const s = getStatus(item);
+            const badge = s==='ok'?'badge-ok':s==='low'?'badge-low':'badge-out';
+            const label = s==='ok'?'In Stock':s==='low'?'Low Stock':'Out of Stock';
+            return `<tr>
+              <td style="font-weight:500">${esc(item.name)}</td>
+              <td style="color:var(--text2)">${esc(item.category)}</td>
+              <td><span style="font-family:var(--mono);font-weight:500">${item.qty}</span> <span style="color:var(--text3);font-size:12px">${esc(item.unit)}(s)</span></td>
+              <td><span class="badge ${badge}">${label}</span></td>
+              ${isStaff ? `
+                <td>
+                  <div class="qty-input-wrap">
+                    <input type="number" min="1" max="${item.qty}" value="${esc(state.requestQty[item.id]||'')}" oninput="state.requestQty['${item.id}']=this.value" placeholder="qty" ${item.qty===0?'disabled':''}/>
+                  </div>
+                </td>
+                <td><button class="btn-primary btn-sm" onclick="requestItem('${item.id}')" ${item.qty===0?'disabled':''}>Get</button></td>
+              ` : `
+                <td>
+                  <div class="qty-input-wrap">
+                    <input type="number" min="1" value="${esc(state.restockQty[item.id]||'')}" oninput="state.restockQty['${item.id}']=this.value" placeholder="qty"/>
+                    <button class="btn-sm" style="background:var(--green-bg);border-color:#C0DD97;color:var(--green-text);white-space:nowrap" onclick="restockItem('${item.id}')">+ Add</button>
+                  </div>
+                </td>
+              `}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderLogsTab() {
+  const isStaff = state.currentUser.role === 'staff';
+  const logs = isStaff
+    ? state.logs.filter(l => l.username === state.currentUser.username)
+    : state.logs;
+  return `<div class="content">
+    ${renderAlert()}
+    <div class="section-header">
+      <h2>${isStaff ? 'My Request History' : 'All Activity Log'}</h2>
+      <span style="font-size:12px;color:var(--text3)">${logs.length} records</span>
+    </div>
+    <div class="card-flush">
+      <table>
+        <thead><tr>
+          ${!isStaff ? '<th>Staff</th>' : ''}
+          <th>Item</th><th>Qty</th><th>Type</th><th>Date & Time</th>
+        </tr></thead>
+        <tbody>
+          ${logs.length === 0 ? `<tr><td colspan="5"><div class="empty-state"><div class="icon">📋</div><p>No activity yet</p></div></td></tr>` : ''}
+          ${logs.map(l => `<tr>
+            ${!isStaff ? `<td style="font-weight:500">${esc(l.user)}</td>` : ''}
+            <td>${esc(l.itemName)}</td>
+            <td><span style="font-family:var(--mono);font-weight:500">${l.qty}</span> <span style="color:var(--text3);font-size:12px">${esc(l.unit)}(s)</span></td>
+            <td><span class="badge ${l.type==='restock'?'badge-restock':'badge-taken'}">${l.type==='restock'?'Restock':'Taken'}</span></td>
+            <td style="color:var(--text2);font-size:12px">${esc(l.dateStr||'')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderAdminTab() {
+  const n = state.newItem;
+  const e = state.showEditItem;
+  return `<div class="content">
+    ${renderAlert()}
+    <div class="section-header">
+      <h2>Manage Supply Items</h2>
+      <button class="btn-primary btn-sm" onclick="state.showAddItem=!state.showAddItem;state.showEditItem=null;render()">+ Add Item</button>
+    </div>
+
+    ${state.showAddItem ? `
+    <div class="card" style="margin-bottom:18px;border:1px solid var(--purple-mid)">
+      <h3 style="margin-bottom:14px">New Supply Item</h3>
+      <div class="form-grid">
+        <div class="form-group"><label>Item Name *</label><input placeholder="e.g. Highlighter Yellow" value="${esc(n.name)}" oninput="state.newItem.name=this.value"/></div>
+        <div class="form-group"><label>Category *</label>
+          <select onchange="state.newItem.category=this.value">
+            <option value="">Select category...</option>
+            <option ${n.category==='Writing'?'selected':''}>Writing</option>
+            <option ${n.category==='Paper'?'selected':''}>Paper</option>
+            <option ${n.category==='Filing'?'selected':''}>Filing</option>
+            <option ${n.category==='Desktop'?'selected':''}>Desktop</option>
+            <option ${n.category==='Other'?'selected':''}>Other</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Unit *</label><input placeholder="piece / pack / box / roll" value="${esc(n.unit)}" oninput="state.newItem.unit=this.value"/></div>
+        <div class="form-group"><label>Initial Quantity *</label><input type="number" min="0" placeholder="0" value="${esc(n.qty)}" oninput="state.newItem.qty=this.value"/></div>
+        <div class="form-group"><label>Low Stock Alert at</label><input type="number" min="1" placeholder="5" value="${esc(n.low)}" oninput="state.newItem.low=this.value"/></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-primary btn-sm" onclick="addItem()">Save Item</button>
+        <button class="btn-sm" onclick="state.showAddItem=false;render()">Cancel</button>
+      </div>
+    </div>` : ''}
+
+    ${e ? `
+    <div class="card" style="margin-bottom:18px;border:1px solid var(--purple-mid)">
+      <h3 style="margin-bottom:14px">Edit: ${esc(e.name)}</h3>
+      <div class="form-grid">
+        <div class="form-group"><label>Item Name</label><input value="${esc(e.name)}" oninput="state.showEditItem.name=this.value"/></div>
+        <div class="form-group"><label>Category</label>
+          <select onchange="state.showEditItem.category=this.value">
+            <option ${e.category==='Writing'?'selected':''}>Writing</option>
+            <option ${e.category==='Paper'?'selected':''}>Paper</option>
+            <option ${e.category==='Filing'?'selected':''}>Filing</option>
+            <option ${e.category==='Desktop'?'selected':''}>Desktop</option>
+            <option ${e.category==='Other'?'selected':''}>Other</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Unit</label><input value="${esc(e.unit)}" oninput="state.showEditItem.unit=this.value"/></div>
+        <div class="form-group"><label>Current Quantity</label><input type="number" min="0" value="${esc(e.qty)}" oninput="state.showEditItem.qty=this.value"/></div>
+        <div class="form-group"><label>Low Stock Alert at</label><input type="number" min="1" value="${esc(e.low)}" oninput="state.showEditItem.low=this.value"/></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-primary btn-sm" onclick="saveEditItem()">Save Changes</button>
+        <button class="btn-sm" onclick="state.showEditItem=null;render()">Cancel</button>
+      </div>
+    </div>` : ''}
+
+    <div class="card-flush">
+      <table>
+        <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th>Qty</th><th>Low Alert</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${state.inventory.map(item => `<tr>
+            <td style="font-weight:500">${esc(item.name)}</td>
+            <td style="color:var(--text2)">${esc(item.category)}</td>
+            <td style="color:var(--text2)">${esc(item.unit)}</td>
+            <td style="font-family:var(--mono)">${item.qty}</td>
+            <td style="font-family:var(--mono)">${item.low}</td>
+            <td>
+              <div style="display:flex;gap:6px">
+                <button class="btn-sm" onclick="state.showEditItem=JSON.parse('${JSON.stringify(item).replace(/'/g,"\\'")}');state.showAddItem=false;render()">Edit</button>
+                <button class="btn-danger btn-sm" onclick="deleteItem('${item.id}','${esc(item.name).replace(/'/g,"\\'")}')">Delete</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderApp() {
+  let content = '';
+  if (state.tab === 'inventory') content = renderInventoryTab();
+  else if (state.tab === 'logs') content = renderLogsTab();
+  else if (state.tab === 'admin' && state.currentUser.role === 'admin') content = renderAdminTab();
+  return renderTopbar() + renderTabs() + content;
+}
+
+function render() {
+  const app = document.getElementById('app');
+  if (state.screen === 'loading') {
+    app.innerHTML = `<div class="loading-screen"><div class="spinner"></div><span>Connecting to database...</span></div>`;
+  } else if (state.screen === 'setup') {
+    app.innerHTML = renderSetup();
+  } else if (state.screen === 'login') {
+    app.innerHTML = renderLogin();
+  } else if (state.screen === 'app') {
+    app.innerHTML = renderApp();
+  }
+}
+
+// ============================================================
+// STARTUP
+// ============================================================
+async function start() {
+  render();
+  // Try saved config first, then hardcoded config
+  let config = FIREBASE_CONFIG;
+  const saved = localStorage.getItem('inv_firebase_config');
+  if (saved) {
+    try { config = JSON.parse(saved); } catch(e) {}
+  }
+  if (!config.apiKey || !config.projectId) {
+    state.screen = 'setup';
+    render();
+    return;
+  }
+  const ok = initFirebase(config);
+  if (!ok) {
+    state.screen = 'setup';
+    render();
+    return;
+  }
+  try {
+    await seedDatabase();
+    state.screen = 'login';
+    render();
+  } catch(e) {
+    console.error(e);
+    state.screen = 'setup';
+    state.configError = 'Could not connect to Firebase. Please check your config and make sure Firestore is enabled.';
+    render();
+  }
+}
+
+start();
+</script>
+</body>
+</html>
+npm install firebase
