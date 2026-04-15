@@ -1,7 +1,7 @@
 {
   "hosting": {
-    "site": "sweetshadow-237de-d1680",
-
-    "public": "public"
+    "public": ".",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }]
   }
 }
