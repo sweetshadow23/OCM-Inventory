@@ -118,22 +118,20 @@ tr:hover td{background:#FAFAF8}
   </div>
 </div>
 
-<script>
-// ============================================================
-// FIREBASE CONFIGURATION
-// Replace with your own Firebase project config below.
-// See setup instructions in the app after opening this file.
-// ============================================================
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyCrb4POFjh32drdjet77ZNg3PvNlY7L2Zg",
-  authDomain: "sweetshadow-237de.firebaseapp.com",
-  projectId: "sweetshadow-237de",
-  storageBucket: "sweetshadow-237de.firebasestorage.app",
-  messagingSenderId: "903858609597",
-  appId: "1:903858609597:web:c8df2e004da03908d606d4",
-  measurementId: "G-2L81DX4LY9"
-};
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCrb4POFjh32drdjet77ZNg3PvNlY7LZg",
+    authDomain: "sweetshadow-237de.firebaseapp.com",
+    databaseURL: "https://sweetshadow-237de-default-rtdb.firebaseio.com",
+    projectId: "sweetshadow-237de",
+    storageBucket: "sweetshadow-237de.firebasestorage.app",
+    messagingSenderId: "903858609597",
+    appId: "1:903858609597:web:c8df2e004da03908d606d4"
+  };
+  const app = initializeApp(firebaseConfig);
+
 
 // ============================================================
 // DEFAULT USERS (stored in Firestore on first run)
