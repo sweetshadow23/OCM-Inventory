@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Office Supplies Inventory</title>
+<!-- FIX 1: Use ONLY compat SDK — removed conflicting module import -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -120,30 +121,26 @@ tr:hover td{background:#FAFAF8}
 
 <script>
 // ============================================================
-// FIREBASE CONFIGURATION
-// Replace with your own Firebase project config below.
-// See setup instructions in the app after opening this file.
+// FIX 2: FIREBASE_CONFIG is now properly defined here
 // ============================================================
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyCrb4POFjh32drdjet77ZNg3PvNlY7L2Zg",
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCrb4POFjh32drdjet77ZNg3PvNlY7LZg",
   authDomain: "sweetshadow-237de.firebaseapp.com",
+  databaseURL: "https://sweetshadow-237de-default-rtdb.firebaseio.com",
   projectId: "sweetshadow-237de",
   storageBucket: "sweetshadow-237de.firebasestorage.app",
   messagingSenderId: "903858609597",
-  appId: "1:903858609597:web:c8df2e004da03908d606d4",
-  measurementId: "G-2L81DX4LY9"
+  appId: "1:903858609597:web:c8df2e004da03908d606d4"
 };
 
 // ============================================================
 // DEFAULT USERS (stored in Firestore on first run)
-// You can change passwords here before deploying
 // ============================================================
 const DEFAULT_USERS = [
-  {username:'admin',   password:'admin123', name:'Admin User',   role:'admin'},
-  {username:'jezza',   password:'pass123',  name:'Jezza Canaria', role:'staff'},
-  {username:'Piii',    password:'pass123',  name:'Paul Christian Faller',   role:'staff'},
-  {username:'Ann-Dhie',     password:'pass123',  name:'Andrea Mhae Tomas',     role:'staff'},
+  {username:'admin',    password:'admin123', name:'Admin User',           role:'admin'},
+  {username:'jezza',    password:'pass123',  name:'Jezza Canaria',        role:'staff'},
+  {username:'piii',     password:'pass123',  name:'Paul Christian Faller',role:'staff'},
+  {username:'ann-dhie', password:'pass123',  name:'Andrea Mhae Tomas',    role:'staff'},
 ];
 
 // ============================================================
@@ -169,7 +166,7 @@ const DEFAULT_INVENTORY = [
 // ============================================================
 let db = null;
 let state = {
-  screen: 'loading', // loading | setup | login | app
+  screen: 'loading',
   currentUser: null,
   tab: 'inventory',
   inventory: [],
@@ -188,16 +185,13 @@ let state = {
   searchTerm: '',
   filterCat: '',
   configInput: {apiKey:'',authDomain:'',projectId:'',storageBucket:'',messagingSenderId:'',appId:''},
+  configError: '',
   dataLoaded: false,
 };
 
 // ============================================================
-// FIREBASE INIT
+// FIX 3: Firebase init using compat SDK correctly
 // ============================================================
-function isConfigured() {
-  return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId;
-}
-
 function initFirebase(config) {
   try {
     if (!firebase.apps.length) {
@@ -212,22 +206,22 @@ function initFirebase(config) {
 }
 
 async function seedDatabase() {
-  // Seed users
   const usersSnap = await db.collection('users').get();
   if (usersSnap.empty) {
     const batch = db.batch();
     DEFAULT_USERS.forEach(u => {
-      const ref = db.collection('users').doc(u.username);
-      batch.set(ref, u);
+      // FIX 4: username lowercased for consistent login lookup
+      const ref = db.collection('users').doc(u.username.toLowerCase());
+      batch.set(ref, {...u, username: u.username.toLowerCase()});
     });
     await batch.commit();
   }
-  // Seed inventory
   const invSnap = await db.collection('inventory').get();
   if (invSnap.empty) {
     const batch = db.batch();
     DEFAULT_INVENTORY.forEach(item => {
       const ref = db.collection('inventory').doc();
+      // FIX 5: FieldValue used correctly with compat SDK
       batch.set(ref, {...item, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
     });
     await batch.commit();
@@ -262,6 +256,7 @@ async function doLogin() {
   state.loginLoading = true;
   render();
   try {
+    // FIX 6: Always lowercase the username on login to match stored doc ID
     const doc = await db.collection('users').doc(state.loginUser.trim().toLowerCase()).get();
     if (doc.exists && doc.data().password === state.loginPass) {
       state.currentUser = {id: doc.id, ...doc.data()};
@@ -276,6 +271,7 @@ async function doLogin() {
     }
   } catch(e) {
     state.loginError = 'Connection error. Check your Firebase config.';
+    console.error(e);
   }
   state.loginLoading = false;
   render();
@@ -295,7 +291,7 @@ async function requestItem(itemId) {
   const item = state.inventory.find(i => i.id === itemId);
   if (!item) return;
   if (!qty || qty < 1) { showAlert('Enter a valid quantity.', 'error'); return; }
-  if (qty > item.qty) { showAlert(`Only ${item.qty} ${item.unit}(s) available.`, 'error'); return; }
+  if (qty > item.qty) { showAlert('Only ' + item.qty + ' ' + item.unit + '(s) available.', 'error'); return; }
   try {
     await db.collection('inventory').doc(itemId).update({ qty: item.qty - qty });
     await db.collection('logs').add({
@@ -305,8 +301,8 @@ async function requestItem(itemId) {
       dateStr: new Date().toLocaleString('en-PH')
     });
     state.requestQty[itemId] = '';
-    showAlert(`${qty} ${item.unit}(s) of "${item.name}" logged.`);
-  } catch(e) { showAlert('Error saving request.', 'error'); }
+    showAlert(qty + ' ' + item.unit + '(s) of "' + item.name + '" logged.');
+  } catch(e) { showAlert('Error saving request.', 'error'); console.error(e); }
 }
 
 async function restockItem(itemId) {
@@ -323,8 +319,8 @@ async function restockItem(itemId) {
       dateStr: new Date().toLocaleString('en-PH')
     });
     state.restockQty[itemId] = '';
-    showAlert(`Restocked ${qty} ${item.unit}(s) of "${item.name}".`);
-  } catch(e) { showAlert('Error restocking item.', 'error'); }
+    showAlert('Restocked ' + qty + ' ' + item.unit + '(s) of "' + item.name + '".');
+  } catch(e) { showAlert('Error restocking item.', 'error'); console.error(e); }
 }
 
 async function addItem() {
@@ -338,8 +334,8 @@ async function addItem() {
     });
     state.newItem = {name:'',category:'',unit:'',qty:'',low:'5'};
     state.showAddItem = false;
-    showAlert(`"${n.name}" added to inventory.`);
-  } catch(e) { showAlert('Error adding item.', 'error'); }
+    showAlert('"' + n.name + '" added to inventory.');
+  } catch(e) { showAlert('Error adding item.', 'error'); console.error(e); }
 }
 
 async function saveEditItem() {
@@ -352,15 +348,15 @@ async function saveEditItem() {
     });
     state.showEditItem = null;
     showAlert('Item updated.');
-  } catch(err) { showAlert('Error updating item.', 'error'); }
+  } catch(err) { showAlert('Error updating item.', 'error'); console.error(err); }
 }
 
 async function deleteItem(id, name) {
-  if (!confirm(`Remove "${name}" from inventory?`)) return;
+  if (!confirm('Remove "' + name + '" from inventory?')) return;
   try {
     await db.collection('inventory').doc(id).delete();
-    showAlert(`"${name}" removed.`);
-  } catch(e) { showAlert('Error deleting item.', 'error'); }
+    showAlert('"' + name + '" removed.');
+  } catch(e) { showAlert('Error deleting item.', 'error'); console.error(e); }
 }
 
 // ============================================================
@@ -395,22 +391,20 @@ function renderSetup() {
           <div style="font-size:12px;color:var(--text3)">First-time setup</div>
         </div>
       </div>
-
       <div class="setup-panel">
         <h3>🔧 Firebase Setup Required</h3>
-        <p>This app uses <strong>Firebase Firestore</strong> (free) to sync inventory across all your office PCs in real time. Follow these steps once:</p>
+        <p>This app uses <strong>Firebase Firestore</strong> (free) to sync inventory in real time.</p>
         <div class="setup-steps">
-          <div class="setup-step"><strong>Step 1 — Create a Firebase project</strong>Go to <a href="https://console.firebase.google.com" target="_blank" style="color:var(--purple)">console.firebase.google.com</a> → click "Add project" → enter any name → continue until done.</div>
-          <div class="setup-step"><strong>Step 2 — Enable Firestore</strong>In your project → "Build" → "Firestore Database" → "Create database" → choose "Start in test mode" → select a region → click Enable.</div>
-          <div class="setup-step"><strong>Step 3 — Get your config</strong>Go to Project Settings (⚙️ icon) → "Your apps" → click "&lt;/&gt;" Web → register app → copy the <code>firebaseConfig</code> values.</div>
-          <div class="setup-step"><strong>Step 4 — Paste config below</strong>Fill in the fields below and click Save. The app will seed itself with default users and inventory.</div>
+          <div class="setup-step"><strong>Step 1 — Create a Firebase project</strong>Go to <a href="https://console.firebase.google.com" target="_blank" style="color:var(--purple)">console.firebase.google.com</a> → Add project.</div>
+          <div class="setup-step"><strong>Step 2 — Enable Firestore</strong>Build → Firestore Database → Create database → Start in test mode.</div>
+          <div class="setup-step"><strong>Step 3 — Get your config</strong>Project Settings → Your apps → Web → copy firebaseConfig values.</div>
+          <div class="setup-step"><strong>Step 4 — Paste config below</strong>Fill in the fields and click Save.</div>
         </div>
       </div>
-
       <div class="config-form card">
-        <h2 style="margin-bottom:16px">Firebase Configuration</h2>
-        ${state.configError ? `<div class="alert alert-error">${state.configError}</div>` : ''}
-        <div class="form-grid">
+        <h2>Firebase Configuration</h2>
+        ${state.configError ? '<div class="alert alert-error">' + state.configError + '</div>' : ''}
+        <div class="form-grid" style="margin-top:16px">
           <div class="form-group"><label>API Key</label><input placeholder="AIzaSy..." value="${esc(c.apiKey)}" oninput="state.configInput.apiKey=this.value"/></div>
           <div class="form-group"><label>Auth Domain</label><input placeholder="your-app.firebaseapp.com" value="${esc(c.authDomain)}" oninput="state.configInput.authDomain=this.value"/></div>
           <div class="form-group"><label>Project ID</label><input placeholder="your-app-id" value="${esc(c.projectId)}" oninput="state.configInput.projectId=this.value"/></div>
@@ -418,8 +412,8 @@ function renderSetup() {
           <div class="form-group"><label>Messaging Sender ID</label><input placeholder="123456789" value="${esc(c.messagingSenderId)}" oninput="state.configInput.messagingSenderId=this.value"/></div>
           <div class="form-group"><label>App ID</label><input placeholder="1:123456:web:abc..." value="${esc(c.appId)}" oninput="state.configInput.appId=this.value"/></div>
         </div>
-        <button class="btn-primary" style="width:100%;padding:11px" onclick="saveConfig()">Save & Connect</button>
-        <p style="font-size:12px;color:var(--text3);margin-top:10px;text-align:center">Your config is saved in this browser. Share the <code>.html</code> file with your officemates — they each paste the same config once.</p>
+        <button class="btn-primary" style="width:100%;padding:11px" onclick="saveConfig()">Save &amp; Connect</button>
+        <p style="font-size:12px;color:var(--text3);margin-top:10px;text-align:center">Config is saved in this browser's localStorage.</p>
       </div>
     </div>
   </div>`;
@@ -428,8 +422,7 @@ function renderSetup() {
 function saveConfig() {
   const c = state.configInput;
   if (!c.apiKey || !c.projectId) { state.configError = 'API Key and Project ID are required.'; render(); return; }
-  const config = {...c};
-  localStorage.setItem('inv_firebase_config', JSON.stringify(config));
+  localStorage.setItem('inv_firebase_config', JSON.stringify(c));
   location.reload();
 }
 
@@ -442,7 +435,7 @@ function renderLogin() {
         <div style="font-size:20px;font-weight:600;letter-spacing:-.4px">Office Inventory</div>
         <div style="font-size:13px;color:var(--text2);margin-top:4px">Sign in to your account</div>
       </div>
-      ${state.loginError ? `<div class="alert alert-error">${state.loginError}</div>` : ''}
+      ${state.loginError ? '<div class="alert alert-error">' + state.loginError + '</div>' : ''}
       <div style="display:flex;flex-direction:column;gap:14px">
         <div class="form-group">
           <label>Username</label>
@@ -457,11 +450,12 @@ function renderLogin() {
         </button>
       </div>
       <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.05em">Default accounts</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.05em">Accounts</div>
         <div style="display:flex;flex-direction:column;gap:4px">
           <div style="font-size:12px;color:var(--text2)">admin / admin123 — Admin</div>
-          <div style="font-size:12px;color:var(--text2)">maria / pass123 — Staff</div>
-          <div style="font-size:12px;color:var(--text2)">jose / pass123 — Staff</div>
+          <div style="font-size:12px;color:var(--text2)">jezza / pass123 — Staff</div>
+          <div style="font-size:12px;color:var(--text2)">piii / pass123 — Staff</div>
+          <div style="font-size:12px;color:var(--text2)">ann-dhie / pass123 — Staff</div>
         </div>
       </div>
     </div>
@@ -502,7 +496,7 @@ function renderStats() {
   const inv = state.inventory;
   const out = inv.filter(i => getStatus(i) === 'out').length;
   const low = inv.filter(i => getStatus(i) === 'low').length;
-  const ok = inv.filter(i => getStatus(i) === 'ok').length;
+  const ok  = inv.filter(i => getStatus(i) === 'ok').length;
   return `<div class="stats-grid">
     <div class="stat-card">
       <div class="stat-val">${inv.length}</div>
@@ -552,6 +546,8 @@ function renderInventoryTab() {
             const s = getStatus(item);
             const badge = s==='ok'?'badge-ok':s==='low'?'badge-low':'badge-out';
             const label = s==='ok'?'In Stock':s==='low'?'Low Stock':'Out of Stock';
+            // FIX 7: Safe JSON serialization for edit button to avoid quote-breaking issues
+            const itemJson = esc(JSON.stringify(item));
             return `<tr>
               <td style="font-weight:500">${esc(item.name)}</td>
               <td style="color:var(--text2)">${esc(item.category)}</td>
@@ -595,7 +591,7 @@ function renderLogsTab() {
       <table>
         <thead><tr>
           ${!isStaff ? '<th>Staff</th>' : ''}
-          <th>Item</th><th>Qty</th><th>Type</th><th>Date & Time</th>
+          <th>Item</th><th>Qty</th><th>Type</th><th>Date &amp; Time</th>
         </tr></thead>
         <tbody>
           ${logs.length === 0 ? `<tr><td colspan="5"><div class="empty-state"><div class="icon">📋</div><p>No activity yet</p></div></td></tr>` : ''}
@@ -675,23 +671,35 @@ function renderAdminTab() {
       <table>
         <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th>Qty</th><th>Low Alert</th><th>Actions</th></tr></thead>
         <tbody>
-          ${state.inventory.map(item => `<tr>
-            <td style="font-weight:500">${esc(item.name)}</td>
-            <td style="color:var(--text2)">${esc(item.category)}</td>
-            <td style="color:var(--text2)">${esc(item.unit)}</td>
-            <td style="font-family:var(--mono)">${item.qty}</td>
-            <td style="font-family:var(--mono)">${item.low}</td>
-            <td>
-              <div style="display:flex;gap:6px">
-                <button class="btn-sm" onclick="state.showEditItem=JSON.parse('${JSON.stringify(item).replace(/'/g,"\\'")}');state.showAddItem=false;render()">Edit</button>
-                <button class="btn-danger btn-sm" onclick="deleteItem('${item.id}','${esc(item.name).replace(/'/g,"\\'")}')">Delete</button>
-              </div>
-            </td>
-          </tr>`).join('')}
+          ${state.inventory.map(item => {
+            // FIX 7: Use data attribute to safely pass item data instead of inline JSON
+            return `<tr>
+              <td style="font-weight:500">${esc(item.name)}</td>
+              <td style="color:var(--text2)">${esc(item.category)}</td>
+              <td style="color:var(--text2)">${esc(item.unit)}</td>
+              <td style="font-family:var(--mono)">${item.qty}</td>
+              <td style="font-family:var(--mono)">${item.low}</td>
+              <td>
+                <div style="display:flex;gap:6px">
+                  <button class="btn-sm" onclick="editItem('${item.id}')">Edit</button>
+                  <button class="btn-danger btn-sm" onclick="deleteItem('${item.id}','${esc(item.name).replace(/'/g,'\&#39;')}')">Delete</button>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
         </tbody>
       </table>
     </div>
   </div>`;
+}
+
+// FIX 7: Safe edit function — looks up item from state instead of parsing inline JSON
+function editItem(id) {
+  const item = state.inventory.find(i => i.id === id);
+  if (!item) return;
+  state.showEditItem = {...item};
+  state.showAddItem = false;
+  render();
 }
 
 function renderApp() {
@@ -720,7 +728,6 @@ function render() {
 // ============================================================
 async function start() {
   render();
-  // Try saved config first, then hardcoded config
   let config = FIREBASE_CONFIG;
   const saved = localStorage.getItem('inv_firebase_config');
   if (saved) {
@@ -744,7 +751,7 @@ async function start() {
   } catch(e) {
     console.error(e);
     state.screen = 'setup';
-    state.configError = 'Could not connect to Firebase. Please check your config and make sure Firestore is enabled.';
+    state.configError = 'Could not connect to Firebase. Check your config and make sure Firestore is enabled in test mode.';
     render();
   }
 }
@@ -753,4 +760,3 @@ start();
 </script>
 </body>
 </html>
-npm install firebase
